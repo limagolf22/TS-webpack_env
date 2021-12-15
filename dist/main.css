@@ -1,0 +1,27 @@
+body {
+	margin: 0;
+	overflow: hidden;
+}
+
+.panel-sliders {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 200px;
+    width: 300px;
+    background-color: rgba( 255, 255, 255, 0.5 );
+    border-radius: 0 5px 0 0;
+}
+
+.row-div {
+    display: flex;
+    flex-direction:row;
+}
+
+#valmin
+{
+   width:30px; /* or whatever width you want. */
+   
+}
