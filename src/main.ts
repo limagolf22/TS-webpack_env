@@ -21,12 +21,20 @@ let floor=0,ceil=110/130;
 
 var lineMesh: LineSegments<BufferGeometry, LineBasicMaterial>;
 
-var geometryLine = new BufferGeometry();
 
+var FRgeometryLine = new BufferGeometry();
+var geometryLine = new BufferGeometry();
 var pointGeometry = new BufferGeometry();
 var pointGeometry_glide = new BufferGeometry();
 
 var initPointGeometry = new BufferGeometry();
+
+var FRmaterial = new LineBasicMaterial({
+    transparent: true,
+    opacity:0.8,
+    vertexColors: true,
+    blending: AdditiveBlending
+});
 
 var material = new LineBasicMaterial({
     transparent: true,
@@ -34,6 +42,7 @@ var material = new LineBasicMaterial({
     vertexColors: true,
     blending: AdditiveBlending
 });
+
 
 var pointMaterial = new PointsMaterial({
     size:3,
@@ -434,11 +443,32 @@ var vectorList:number[] =[];
 
 var dico:any = {};
 
+var frpositions:number[] = [];
+var frcolors:number[] = [];
+var frindices:number[] = [];
+
 function load3DVisual(){
     var values = loadTxt();
     MMax = getmax(values);
+    var border = loadFRMap();
+    let l:number=0;
+    border.forEach(val => {
+        frpositions.push(parseFloat(val[0]));
+        frpositions.push(parseFloat(val[1]));
+        frpositions.push(parseFloat(val[2]));
+        frcolors.push(1,1,1);
+        frindices.push(l,l+1);
+        l++
+    });
+    frindices.pop();
+    frindices.pop();
+    FRgeometryLine.setAttribute('position',new Float32BufferAttribute(frpositions,3));
+    FRgeometryLine.setAttribute('color',new Float32BufferAttribute(frcolors,3));
+    FRgeometryLine.setIndex(frindices);
 
+    scene.add(new LineSegments(FRgeometryLine, FRmaterial));
     
+
 
     dico = {};
     values.forEach(val => {
@@ -513,7 +543,7 @@ function load3DVisual(){
     filterListV2()
     lineMesh = new LineSegments(geometryLine, material);
     particulesMesh = new Points(pointGeometry, pointMaterial);
-    console.log(pointGeometry);
+    //console.log(pointGeometry);
     //lineMesh.geometry.set
 
 
