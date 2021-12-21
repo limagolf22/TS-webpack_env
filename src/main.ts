@@ -56,6 +56,7 @@ var particulesMesh: Points<BufferGeometry, PointsMaterial>;
 
 var mode ="grad mode";
 
+var container: HTMLDivElement;
 
 function init() {
 
@@ -67,7 +68,7 @@ function init() {
     let aspectRatio = window.innerWidth / window.innerHeight;
     camera = new OrthographicCamera( -0.7 * aspectRatio, 0.7 * aspectRatio, 0.7, -0.7, 0.00001, 1000 );
     scene.add( camera );
-    camera.position.set( 0, 0, -1 );
+    camera.position.set( 0, 0, 1 );
     camera.lookAt( new Vector3( 0, 0, 0 ) );
 
     // Create renderer
@@ -76,7 +77,7 @@ function init() {
     } );
     renderer.setSize( window.innerWidth, window.innerHeight );
     renderer.setPixelRatio( window.devicePixelRatio );
-    let container = document.createElement( 'div' );
+    container = document.createElement( 'div' );
     document.body.appendChild( container );
     container.appendChild( renderer.domElement );
     
@@ -94,7 +95,7 @@ function init() {
     //exampleThreejs();
     load3DVisual();
 
-    document.addEventListener( 'wheel', (event) => {
+    container.addEventListener( 'wheel', (event) => {
       
         let zoom = (<OrthographicCamera>camera).zoom; // take current zoom value
         zoom += event.deltaY * -0.01; /// adjust it
@@ -161,9 +162,9 @@ function onSliderYInput(this: any){
 }
 
 function initPan(){
-    document.addEventListener('mousedown',panMouseDown);
-    document.addEventListener('mouseup',panMouseUp);
-    document.addEventListener('mousemove',panMouseMove);
+    container.addEventListener('mousedown',panMouseDown);
+    container.addEventListener('mouseup',panMouseUp);
+    container.addEventListener('mousemove',panMouseMove);
 }
 
 function panMouseDown(ev: { buttons: number; }){
@@ -179,8 +180,13 @@ function panMouseMove(ev: { buttons: number; movementX: number; movementY: numbe
     
     console.log(ev.buttons);
     if(ev.buttons==4 && State=="Panning"){
-        camera.rotateOnAxis(new Vector3(1,0,0),ev.movementY/5*Math.PI/180);
-        camera.rotateOnAxis(new Vector3(0,1,0),ev.movementX/5*Math.PI/180);
+        //camera.rotateOnAxis(new Vector3(1,0,0),ev.movementY/5*Math.PI/180);
+        //camera.rotateOnAxis(new Vector3(0,1,0),ev.movementX/5*Math.PI/180);
+        
+        camera.translateOnAxis(new Vector3(0,1,0),ev.movementY/250);
+        camera.translateOnAxis(new Vector3(-1,0,0),ev.movementX/250);
+        
+        (<OrthographicCamera>camera).updateProjectionMatrix();
 
         // lineMesh.rotateY(ev.movementX/5*Math.PI/180);
         // particulesMesh.rotateY(ev.movementX/5*Math.PI/180);
@@ -335,6 +341,25 @@ function animate() {
 
 };
 
+function loadFRMap() {
+
+    // 
+    var myDataStr = (<HTMLDivElement>(document.getElementById("FRCoord"))).innerText;
+    var mdstr3 = myDataStr.split('\n');
+    //myDataStr = myDataStr.split( '\n' );
+    var cb: string[][] = [];
+    //console.log(mdstr2);
+    mdstr3.forEach(element => {
+
+        cb.push(element.split(';'));
+    });
+   
+
+    
+    //console.log(cb);
+    return cb;
+
+}
 
 
 /**
@@ -360,6 +385,7 @@ function loadTxt() {
     return cb;
 
 }
+
 
 function getmax(res: any[]){
     
@@ -411,6 +437,9 @@ var dico:any = {};
 function load3DVisual(){
     var values = loadTxt();
     MMax = getmax(values);
+
+    
+
     dico = {};
     values.forEach(val => {
         let ind = parseInt(val[0]);
