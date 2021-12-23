@@ -21,6 +21,7 @@ let renderer: WebGLRenderer;
 let container: HTMLDivElement;
 
 var lineMesh: LineSegments<BufferGeometry, LineBasicMaterial>;
+var lineFRMesh: LineSegments<BufferGeometry, LineBasicMaterial>;
 var particulesMesh: Points<BufferGeometry, PointsMaterial>;
 
 var indices: number[] = [];
@@ -36,8 +37,14 @@ namespace Panel {
   let capxC1 = xC1;
   let capxC2 = xC2;
 
+  let GxC1 = 0;
+  let GxC2 = 140;
+  let GcapxC1 = GxC1;
+  let GcapxC2 = GxC2;
   export let floor = 0,
-    ceil = 110 / 130;
+    ceil = 110 / 130,
+    glidefloor = 0,
+    glideceil = 1;
 
   let rotX = 0,
     rotY = 0;
@@ -79,11 +86,54 @@ namespace Panel {
     ).toString();
   }
 
+  export function initGlideSlider() {
+    var Gcanvas = <HTMLCanvasElement>document.getElementById("glide-range-slider");
+    var valmin = <HTMLDivElement>document.getElementById("glide-valmin");
+    var valmax = <HTMLDivElement>document.getElementById("glide-valmax");
+
+    Gcanvas.addEventListener("mousedown", glideSliderMouseDown);
+    document.addEventListener("mouseup", (ev) => {
+      GxC1 = GcapxC1;
+      GxC2 = GcapxC2;
+      State = "Idle";
+    });
+    document.addEventListener("mousemove", sliderMove);
+    var ctx = <CanvasRenderingContext2D>Gcanvas.getContext("2d");
+    ctx.fillStyle = "white";
+    ctx.fillRect(0, 5, Gcanvas.width, Gcanvas.height - 10);
+    ctx.stroke();
+    ctx.fillStyle = "green";
+    ctx.fillRect(GxC1, 5, GxC2 + 10, 10);
+    ctx.stroke();
+    ctx.fillStyle = "red";
+    ctx.fillRect(GxC1, 0, 10, 20);
+    ctx.stroke();
+    ctx.fillStyle = "red";
+    ctx.fillRect(GxC2, 0, 10, 20);
+    ctx.stroke();
+    valmin.innerHTML = Math.round(
+      (GxC1 * (load3DVue.MMax.Dzmax - load3DVue.MMax.Dzmin)) / 130 +
+        load3DVue.MMax.Dzmin
+    ).toString();
+    valmax.innerHTML = Math.round(
+      ((GxC2 - 10) * (load3DVue.MMax.Dzmax - load3DVue.MMax.Dzmin)) / 130 +
+        load3DVue.MMax.Dzmin
+    ).toString();
+  }
+
   function sliderMouseDown(ev: any): void {
     if (ev.layerX >= xC1 && ev.layerX <= xC1 + 10) {
       State = "C1";
     } else if (ev.layerX >= xC2 && ev.layerX <= xC2 + 10) {
       State = "C2";
+    }
+  }
+
+  function glideSliderMouseDown(ev: any): void {
+    if (ev.layerX >= GxC1 && ev.layerX <= GxC1 + 10) {
+      State = "GC1";
+    } else if (ev.layerX >= GxC2 && ev.layerX <= GxC2 + 10) {
+      State = "GC2";
     }
   }
 
@@ -93,16 +143,34 @@ namespace Panel {
         //xC1 = Math.min(Math.max(xC1 + ev.movementX/1.25,0),xC2-10);
         xC1 = xC1 + ev.movementX;
         capxC1 = capXC1Cursor(xC1, capxC2);
+        refreshSlider();
         break;
       case "C2":
         //xC2 = Math.max(Math.min(xC2 + ev.movementX/1.25,150-10),xC1+10);
         xC2 = xC2 + ev.movementX;
         capxC2 = capXC2Cursor(capxC1, xC2);
+        refreshSlider();
+        break;
+      
+      case "GC1":
+        //xC1 = Math.min(Math.max(xC1 + ev.movementX/1.25,0),xC2-10);
+        GxC1 = GxC1 + ev.movementX;
+        GcapxC1 = capXC1Cursor(GxC1, GcapxC2);
+        refreshGlideSlider();
+        break;
+      case "GC2":
+        //xC2 = Math.max(Math.min(xC2 + ev.movementX/1.25,150-10),xC1+10);
+        GxC2 = GxC2 + ev.movementX;
+        GcapxC2 = capXC2Cursor(GcapxC1, GxC2);
+        refreshGlideSlider();
         break;
       default:
         return;
         break;
     }
+
+  }
+  function refreshSlider(){
     var canvas = <HTMLCanvasElement>document.getElementById("range-slider");
     var valmin = <HTMLDivElement>document.getElementById("valmin");
     var valmax = <HTMLDivElement>document.getElementById("valmax");
@@ -133,6 +201,41 @@ namespace Panel {
     valmax.innerHTML = Math.round(
       ((capxC2 - 10) * (load3DVue.MMax.zmax - load3DVue.MMax.zmin)) / 130 +
         load3DVue.MMax.zmin
+    ).toString();
+    filterList();
+  }
+
+  function refreshGlideSlider(){
+    var Gcanvas = <HTMLCanvasElement>document.getElementById("glide-range-slider");
+    var valmin = <HTMLDivElement>document.getElementById("glide-valmin");
+    var valmax = <HTMLDivElement>document.getElementById("glide-valmax");
+
+    glidefloor = GxC1 / 130;
+    glideceil = (GxC2 - 10) / 130;
+
+    var ctx = <CanvasRenderingContext2D>Gcanvas.getContext("2d");
+    ctx.clearRect(0, 0, Gcanvas.width, Gcanvas.height);
+    ctx.fillStyle = "white";
+    ctx.fillRect(0, 5, Gcanvas.width, Gcanvas.height - 10);
+    ctx.stroke();
+
+    ctx.fillStyle = "green";
+    ctx.fillRect(GcapxC1, 5, GcapxC2 + 10 - GcapxC1, 10);
+    ctx.stroke();
+    ctx.fillStyle = "red";
+    ctx.fillRect(GcapxC1, 0, 10, 20);
+    ctx.stroke();
+    ctx.fillStyle = "red";
+    ctx.fillRect(GcapxC2, 0, 10, 20);
+
+    ctx.stroke();
+    valmin.innerHTML = Math.round(
+      (GcapxC1 * (load3DVue.MMax.Dzmax - load3DVue.MMax.Dzmin)) / 130 +
+        load3DVue.MMax.Dzmin
+    ).toString();
+    valmax.innerHTML = Math.round(
+      ((GcapxC2 - 10) * (load3DVue.MMax.Dzmax - load3DVue.MMax.Dzmin)) / 130 +
+        load3DVue.MMax.Dzmin
     ).toString();
     filterList();
   }
@@ -200,19 +303,24 @@ namespace Panel {
   }
   function onSliderXInput(this: any) {
     lineMesh.rotateX((this.value * Math.PI) / 180 - rotX);
+    lineFRMesh.rotateX((this.value * Math.PI) / 180 - rotX);
     particulesMesh.rotateX((this.value * Math.PI) / 180 - rotX);
+
     rotX = (this.value * Math.PI) / 180;
+
   }
 
   function onSliderYInput(this: any) {
     lineMesh.rotateY((this.value * Math.PI) / 180 - rotY);
+    lineFRMesh.rotateY((this.value * Math.PI) / 180 - rotY);
     particulesMesh.rotateY((this.value * Math.PI) / 180 - rotY);
+
     rotY = (this.value * Math.PI) / 180;
   }
 }
 
 namespace Vue {
-  export let camera: Object3D<Event> | OrthographicCamera;
+  export let camera: OrthographicCamera;
 
   export function initCamera() {
     // Create Camera
@@ -291,12 +399,14 @@ namespace Vue {
 
 namespace load3DVue {
   export var MMax: {
-    zmax: any;
-    zmin: any;
-    xmin: any;
-    xmax: any;
-    ymin: any;
-    ymax: any;
+    zmax: number;
+    zmin: number;
+    xmin: number;
+    xmax: number;
+    ymin: number;
+    ymax: number;
+    Dzmax: number;
+    Dzmin: number;
   };
 
   export var vectorList: number[] = [];
@@ -311,7 +421,7 @@ namespace load3DVue {
   export var pointGeometry = new BufferGeometry();
   export var initPointGeometry = new BufferGeometry();
 
-  var HmeanList: any[] = [];
+  var HmeanList: number[] = [];
 
   export function load3DVisual() {
     var values = loadTxt();
@@ -396,6 +506,14 @@ namespace load3DVue {
       vectorList.push(0, 0, 0);
       HmeanList.push(Math.round(hmean));
     });
+    let M: number = vectorList.reduce(function(a,b) {
+      return Math.max(a, b);
+    });
+    let m: number = vectorList.reduce(function(a,b) {
+      return Math.min(a, b);
+    });
+    MMax.Dzmax = M*(MMax.zmax-MMax.zmin);
+    MMax.Dzmin = m*(MMax.zmax-MMax.zmin);
 
     geometryLine.setAttribute(
       "position",
@@ -423,8 +541,6 @@ namespace load3DVue {
       "color",
       new Float32BufferAttribute(colors_grad, 3)
     );
-
-    console.log(indices.length, HmeanList.length);
 
     filterList();
     var material = new LineBasicMaterial({
@@ -468,7 +584,10 @@ namespace load3DVue {
       ymax = -Infinity,
       ymin = Infinity,
       zmax = -Infinity,
-      zmin = Infinity;
+      zmin = Infinity,
+      Dzmax = -Infinity,
+      Dzmin = Infinity;
+
     res.forEach((v: string[]) => {
       xmax = Math.max(parseFloat(v[2]), xmax);
       ymax = Math.max(parseFloat(v[3]), ymax);
@@ -477,6 +596,7 @@ namespace load3DVue {
       ymin = Math.min(parseFloat(v[3]), ymin);
       zmin = Math.min(parseFloat(v[4]), zmin);
     });
+
     return {
       xmax: xmax,
       xmin: xmin,
@@ -484,6 +604,8 @@ namespace load3DVue {
       ymin: ymin,
       zmax: zmax,
       zmin: zmin,
+      Dzmax: Dzmax,
+      Dzmin: Dzmin
     };
   }
 
@@ -520,7 +642,8 @@ namespace load3DVue {
       vertexColors: true,
       blending: AdditiveBlending,
     });
-    scene.add(new LineSegments(FRgeometryLine, FRmaterial));
+    lineFRMesh = new LineSegments(FRgeometryLine, FRmaterial);
+    scene.add(lineFRMesh);
   }
 
   function loadFRMap() {
@@ -568,6 +691,7 @@ function init() {
   Panel.initPanel();
   load3DVue.load3DVisual();
   Panel.initSlider();
+  Panel.initGlideSlider();
 }
 
 /**
@@ -612,14 +736,15 @@ var indices_bis, indices_bis_point;
 function filterList() {
   indices_bis = [];
   indices_bis_point = [];
-  let q = 0;
-  indices_bis.push(indices[0], indices[1]);
-  for (let index = 2; index < indices.length; index += 2) {
+ // indices_bis.push(indices[0], indices[1]);
+  for (let index = 0; index < indices.length; index += 2) {
     const el = indices[index];
 
     if (
-      positions[2 + 3 * el] >= Panel.floor - 0.5 &&
-      positions[2 + 3 * el] <= Panel.ceil - 0.5
+      positions[2+ 3 * el] >= Panel.floor - 0.5 &&
+      positions[2+ 3 * el] <= Panel.ceil - 0.5 &&
+      load3DVue.vectorList[2 + 3 * el] >= 2*(Panel.glidefloor-0.5) &&
+      load3DVue.vectorList[2 + 3 * el] <= 2*(Panel.glideceil-0.5)
     ) {
       indices_bis.push(el, indices[index + 1]);
       indices_bis_point.push(el);
