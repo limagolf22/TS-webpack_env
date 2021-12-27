@@ -11,26 +11,37 @@ import {
   Float32BufferAttribute,
   LineSegments,
   Points,
-  Event,
-  Object3D,
   Camera,
 } from "three";
 
-let scene: Scene;
-let renderer: WebGLRenderer;
-let container: HTMLDivElement;
+let scene: Scene; //scène de la vue
+let renderer: WebGLRenderer; //rendu de la vue
+let container: HTMLDivElement; //conteneur pour la vue
 
-var lineMesh: LineSegments<BufferGeometry, LineBasicMaterial>;
-var lineFRMesh: LineSegments<BufferGeometry, LineBasicMaterial>;
-var particulesMesh: Points<BufferGeometry, PointsMaterial>;
-
+var lineMesh: LineSegments<BufferGeometry, LineBasicMaterial>; //ensemble des segments des trajectoires de vol
+var lineFRMesh: LineSegments<BufferGeometry, LineBasicMaterial>; //ensemble des segments des contours de la France 
+var particulesMesh: Points<BufferGeometry, PointsMaterial>; //ensemble des points des trajectoires de vol
+/**
+ * liste contenant les paires d'indices de chaque point permettant de former les segments des trajectoires de vol
+ */
 var indices: number[] = [];
+/**
+ * liste contenant les indices de chaque point que compte les trajectoires de vol
+ */
 var positions: number[] = [];
-
+/**
+ * liste contenant pour chaque point que compte les trajectoires de vol le triplet de flottant qui définit sa couleur en mode gradient de niveau de vol  
+ */
 var colors_grad: number[] = [];
+/**
+ * liste contenant pour chaque point que compte les trajectoires de vol le triplet de flottant qui définit sa couleur en mode pente
+ */
 var colors_glide: number[] = [];
 
 namespace Panel {
+  /**
+   * état de l'automate qui gère les évènements souris sur les sliders et sur la vue
+   */
   export let State = "Idle";
   let xC1 = 0;
   let xC2 = 110;
@@ -48,9 +59,13 @@ namespace Panel {
 
   let rotX = 0,
     rotY = 0;
-
+  /**
+   * mode de visualisation des trajectoires de vol qui peut être de type "gradient associé au niveau de vol" ou "pente instantanée de la trajectoire"
+   */
   var mode = "grad mode";
-
+  /**
+   * initialise le slider dédié au filtrage des niveaux de vol
+   */
   export function initSlider() {
     var canvas = <HTMLCanvasElement>document.getElementById("range-slider");
     var valmin = <HTMLDivElement>document.getElementById("valmin");
@@ -85,9 +100,13 @@ namespace Panel {
         load3DVue.MMax.zmin
     ).toString();
   }
-
+  /**
+   * initialise le slider dédié au filtrage de la pente de montée/descente
+   */
   export function initGlideSlider() {
-    var Gcanvas = <HTMLCanvasElement>document.getElementById("glide-range-slider");
+    var Gcanvas = <HTMLCanvasElement>(
+      document.getElementById("glide-range-slider")
+    );
     var valmin = <HTMLDivElement>document.getElementById("glide-valmin");
     var valmax = <HTMLDivElement>document.getElementById("glide-valmax");
 
@@ -120,7 +139,9 @@ namespace Panel {
         load3DVue.MMax.Dzmin
     ).toString();
   }
-
+  /**
+   * fonction appelée lorsqu'un bouton de la souris est enfoncé sur une des poignées du slider dédié au niveau de vol
+   */
   function sliderMouseDown(ev: any): void {
     if (ev.layerX >= xC1 && ev.layerX <= xC1 + 10) {
       State = "C1";
@@ -128,7 +149,9 @@ namespace Panel {
       State = "C2";
     }
   }
-
+  /**
+   * fonction appelée lorsqu'un bouton de la souris est enfoncé sur une des poignées du slider dédié à la pente
+   */
   function glideSliderMouseDown(ev: any): void {
     if (ev.layerX >= GxC1 && ev.layerX <= GxC1 + 10) {
       State = "GC1";
@@ -136,30 +159,27 @@ namespace Panel {
       State = "GC2";
     }
   }
-
+  /**
+   * fonction appelée lorsque la souris est déplacée après l'enfoncement d'une des poignées d'un des slider
+   */
   function sliderMove(ev: { movementX: number }) {
     switch (State) {
       case "C1":
-        //xC1 = Math.min(Math.max(xC1 + ev.movementX/1.25,0),xC2-10);
         xC1 = xC1 + ev.movementX;
         capxC1 = capXC1Cursor(xC1, capxC2);
         refreshSlider();
         break;
       case "C2":
-        //xC2 = Math.max(Math.min(xC2 + ev.movementX/1.25,150-10),xC1+10);
         xC2 = xC2 + ev.movementX;
         capxC2 = capXC2Cursor(capxC1, xC2);
         refreshSlider();
         break;
-      
       case "GC1":
-        //xC1 = Math.min(Math.max(xC1 + ev.movementX/1.25,0),xC2-10);
         GxC1 = GxC1 + ev.movementX;
         GcapxC1 = capXC1Cursor(GxC1, GcapxC2);
         refreshGlideSlider();
         break;
       case "GC2":
-        //xC2 = Math.max(Math.min(xC2 + ev.movementX/1.25,150-10),xC1+10);
         GxC2 = GxC2 + ev.movementX;
         GcapxC2 = capXC2Cursor(GcapxC1, GxC2);
         refreshGlideSlider();
@@ -168,9 +188,11 @@ namespace Panel {
         return;
         break;
     }
-
   }
-  function refreshSlider(){
+  /**
+   * fonction qui rafraîchit la position des poignées du slider dédié au niveau de vol
+   */
+  function refreshSlider() {
     var canvas = <HTMLCanvasElement>document.getElementById("range-slider");
     var valmin = <HTMLDivElement>document.getElementById("valmin");
     var valmax = <HTMLDivElement>document.getElementById("valmax");
@@ -204,9 +226,13 @@ namespace Panel {
     ).toString();
     filterList();
   }
-
-  function refreshGlideSlider(){
-    var Gcanvas = <HTMLCanvasElement>document.getElementById("glide-range-slider");
+  /**
+   * fonction qui rafraîchit la position des poignées du slider dédié à la pente
+   */
+  function refreshGlideSlider() {
+    var Gcanvas = <HTMLCanvasElement>(
+      document.getElementById("glide-range-slider")
+    );
     var valmin = <HTMLDivElement>document.getElementById("glide-valmin");
     var valmax = <HTMLDivElement>document.getElementById("glide-valmax");
 
@@ -239,14 +265,21 @@ namespace Panel {
     ).toString();
     filterList();
   }
-
+  /**
+   * fonction qui borne les valeurs obtenues via la poignée de gauche des sliders
+   */
   function capXC1Cursor(x: number, y: number) {
     return Math.min(Math.max(x, 0), y - 10);
   }
+  /**
+   * fonction qui borne les valeurs obtenues via la poignée de droite des sliders
+   */
   function capXC2Cursor(x: number, y: number) {
     return Math.max(Math.min(y, 150 - 10), x + 10);
   }
-
+  /**
+   * initialise le panneau de contrôle (sliders exceptés)
+   */
   export function initPanel() {
     // Add mode change listener
     var checkbox = <HTMLInputElement>document.getElementById("checkbox");
@@ -260,11 +293,12 @@ namespace Panel {
     sliderx.oninput = onSliderXInput;
     slidery.oninput = onSliderYInput;
   }
-
+  /**
+   * fonction appelée quand le switch définissant le mode de visualisation (altitude ou pente) est enclenché
+   */
   function onSwitchToggled() {
     let positionArray = particulesMesh.geometry.attributes.color;
     let LineArray = lineMesh.geometry.attributes.color;
-
     if (mode == "grad mode") {
       for (let index = 0; index < positionArray.count; index++) {
         positionArray.setXYZ(
@@ -279,7 +313,6 @@ namespace Panel {
           colors_grad[3 * index + 1],
           colors_grad[3 * index + 2]
         );
-        //  (particulesMesh.geometry.attributes.position.array)[index] = initPositionArray[index];
       }
     } else {
       for (let index = 0; index < positionArray.count; index++) {
@@ -295,21 +328,24 @@ namespace Panel {
           colors_glide[3 * index + 1],
           colors_glide[3 * index + 2]
         );
-        //  (particulesMesh.geometry.attributes.position.array)[index] = initPositionArray[index];
       }
     }
     particulesMesh.geometry.attributes.color.needsUpdate = true;
     lineMesh.geometry.attributes.color.needsUpdate = true;
   }
+  /**
+   * fonction appelée quand le curseur slider de rotation selon l'axe X est déplacé  
+   */
   function onSliderXInput(this: any) {
     lineMesh.rotateX((this.value * Math.PI) / 180 - rotX);
     lineFRMesh.rotateX((this.value * Math.PI) / 180 - rotX);
     particulesMesh.rotateX((this.value * Math.PI) / 180 - rotX);
 
     rotX = (this.value * Math.PI) / 180;
-
   }
-
+  /**
+   * fonction appelée quand le curseur slider de rotation selon l'axe Y est déplacé  
+   */
   function onSliderYInput(this: any) {
     lineMesh.rotateY((this.value * Math.PI) / 180 - rotY);
     lineFRMesh.rotateY((this.value * Math.PI) / 180 - rotY);
@@ -321,7 +357,9 @@ namespace Panel {
 
 namespace Vue {
   export let camera: OrthographicCamera;
-
+  /**
+   * initialise la caméra utilisée dans la scène
+   */
   export function initCamera() {
     // Create Camera
     let aspectRatio = window.innerWidth / window.innerHeight;
@@ -337,7 +375,9 @@ namespace Vue {
     camera.position.set(0, 0, 1);
     camera.lookAt(new Vector3(0, 0, 0));
   }
-
+  /**
+   * abonne les mouvements de la caméra aux évenements souris permettant de réaliser des manipulations directes
+   */
   export function initGestures() {
     container.addEventListener("wheel", (event) => {
       let zoom = (<OrthographicCamera>camera).zoom; // take current zoom value
@@ -345,43 +385,38 @@ namespace Vue {
       zoom = Math.max(0.0125, zoom); /// clamp the value
 
       (<OrthographicCamera>camera).zoom = zoom; /// assign new zoom value
-      (<OrthographicCamera>camera).updateProjectionMatrix(); /// ma
-      //camera.position.add(new Vector3(0,0,event.deltaY/500));// .needsUpdate = true;
+      (<OrthographicCamera>camera).updateProjectionMatrix(); /// maj
 
       camera.translateOnAxis(new Vector3(0, 0, -1), event.deltaY / 250);
-      (<OrthographicCamera>camera).updateProjectionMatrix(); /// ma
+      (<OrthographicCamera>camera).updateProjectionMatrix(); /// maj
     });
 
     container.addEventListener("mousedown", panMouseDown);
     container.addEventListener("mouseup", panMouseUp);
     container.addEventListener("mousemove", panMouseMove);
   }
-
+  /**
+   * fonction appelée quand l'utilisateur enfonce le bouton gauche ou la molette de sa souris sur la vue et qui enclenche l'état de pan
+   */
   function panMouseDown(ev: { buttons: number }) {
     if (ev.buttons > 0) {
       Panel.State = "Panning";
     }
   }
-
+  /**
+   * fonction appelée quand l'utilisateur déplace sa souris alors que la vue est en état de pan
+   * translate la caméra si le bouton de la molette est enfoncé
+   * fait tourner la caméra autourdu centre de la figure si le bouton gauche de la souris est enfoncé 
+   */
   function panMouseMove(ev: {
     buttons: number;
     movementX: number;
     movementY: number;
   }) {
     if (ev.buttons == 4 && Panel.State == "Panning") {
-      //camera.rotateOnAxis(new Vector3(1,0,0),ev.movementY/5*Math.PI/180);
-      //camera.rotateOnAxis(new Vector3(0,1,0),ev.movementX/5*Math.PI/180);
-
       camera.translateOnAxis(new Vector3(0, 1, 0), ev.movementY / 250);
       camera.translateOnAxis(new Vector3(-1, 0, 0), ev.movementX / 250);
-
       (<OrthographicCamera>camera).updateProjectionMatrix();
-
-      // lineMesh.rotateY(ev.movementX/5*Math.PI/180);
-      // particulesMesh.rotateY(ev.movementX/5*Math.PI/180);
-
-      // lineMesh.rotateX(ev.movementY/5*Math.PI/180);
-      // particulesMesh.rotateX(ev.movementY/5*Math.PI/180);
     } else if (ev.buttons == 1 && Panel.State == "Panning") {
       camera.translateOnAxis(new Vector3(0, 1, 0), ev.movementY / 250);
       camera.translateOnAxis(new Vector3(-1, 0, 0), ev.movementX / 250);
@@ -389,7 +424,9 @@ namespace Vue {
       (<OrthographicCamera>camera).updateProjectionMatrix(); /// ma
     }
   }
-
+  /**
+   * fonction appelée quand l'utilisateur relâche sa pression sur les boutons de la souris, permet de quitter l'état de pan
+   */
   function panMouseUp(ev: any) {
     if (Panel.State == "Panning") {
       Panel.State = "Idle";
@@ -398,6 +435,9 @@ namespace Vue {
 }
 
 namespace load3DVue {
+  /**
+   * variable contenant les bornes des valeurs de positions de chaque point des trajectoires de vol étudiées
+   */
   export var MMax: {
     zmax: number;
     zmin: number;
@@ -408,21 +448,33 @@ namespace load3DVue {
     Dzmax: number;
     Dzmin: number;
   };
-
+  /**
+   * liste contenant les triplets de coordonnées de chaque vecteur de déplacement associé à chaque trait des trajectoires de vol 
+   */
   export var vectorList: number[] = [];
 
-  var dico: any = {};
+  var dico: any = {}; //dictionnaire utilisé pour extraire les trajectoires de vol de la balise HTML les contenant
 
-  var frpositions: number[] = [];
-  var frcolors: number[] = [];
-  var frindices: number[] = [];
-
-  export var geometryLine = new BufferGeometry();
+  var frpositions: number[] = []; //liste des positions liées au contour de la france
+  var frcolors: number[] = []; //liste des couleurs données au contour de la france
+  var frindices: number[] = []; //liste des paires d'indices des positions liées au contour de la France permettant de former des segments
+  /**
+   * contient les segments des trajectoires de vol
+   */
+  export var geometryLine = new BufferGeometry(); 
+  /**
+   * contient les points des trajectoires de vol
+   */
   export var pointGeometry = new BufferGeometry();
+  /**
+   * contient les points initiaux des trajectoires de vol (référence pour l'animation de déplacement des points le long de la trajectoire)
+   */
   export var initPointGeometry = new BufferGeometry();
 
-  var HmeanList: number[] = [];
-
+  var HmeanList: number[] = []; //liste contenant les valeurs moyennes d'altitude de chaque trajectoire
+  /**
+   * fonction principale permettant de générer la vue complète des trajectoires de vol
+   */
   export function load3DVisual() {
     var values = loadTxt();
     MMax = getmax(values);
@@ -506,14 +558,14 @@ namespace load3DVue {
       vectorList.push(0, 0, 0);
       HmeanList.push(Math.round(hmean));
     });
-    let M: number = vectorList.reduce(function(a,b) {
+    let M: number = vectorList.reduce(function (a, b) {
       return Math.max(a, b);
     });
-    let m: number = vectorList.reduce(function(a,b) {
+    let m: number = vectorList.reduce(function (a, b) {
       return Math.min(a, b);
     });
-    MMax.Dzmax = M*(MMax.zmax-MMax.zmin);
-    MMax.Dzmin = m*(MMax.zmax-MMax.zmin);
+    MMax.Dzmax = M * (MMax.zmax - MMax.zmin);
+    MMax.Dzmin = m * (MMax.zmax - MMax.zmin);
 
     geometryLine.setAttribute(
       "position",
@@ -564,7 +616,7 @@ namespace load3DVue {
   }
 
   /**
-   * Récupérer les informations des trajectoires
+   * Récupère les informations des trajectoires de vol
    */
   function loadTxt() {
     let myDataStr = (<HTMLDivElement>document.getElementById("myData"))
@@ -577,8 +629,12 @@ namespace load3DVue {
     });
     return cb;
   }
-
-  function getmax(res: any[]) {
+  /**
+   * permet d'obtenir les bornes d'une liste de trajectoires
+   * @params liste de trajectoires 
+   * @returns objet comportant les min et les max de chaque axe
+   */
+  function getmax(res: any[]): {xmax:number,xmin:number,ymax:number,ymin:number,zmax:number,zmin:number,Dzmax:number,Dzmin:number} {
     let xmax = -Infinity,
       xmin = Infinity,
       ymax = -Infinity,
@@ -605,10 +661,12 @@ namespace load3DVue {
       zmax: zmax,
       zmin: zmin,
       Dzmax: Dzmax,
-      Dzmin: Dzmin
+      Dzmin: Dzmin,
     };
   }
-
+  /**
+   * affiche les contours de la France dans la vue
+   */
   function displayFRMap() {
     var FRborder = loadFRMap();
     let l: number = 0;
@@ -645,7 +703,9 @@ namespace load3DVue {
     lineFRMesh = new LineSegments(FRgeometryLine, FRmaterial);
     scene.add(lineFRMesh);
   }
-
+  /**
+   * charge les coordonnées des contours de la France depuis la balise HTML les contenant
+   */
   function loadFRMap() {
     let myDataStr = (<HTMLDivElement>document.getElementById("FRCoord"))
       .innerText;
@@ -656,12 +716,18 @@ namespace load3DVue {
     });
     return cb;
   }
-
+  /**
+   * fonction qui permet de générer un gradient de couleur homogène
+   * @param val position entre 0 et 1 de la valeur entrante 
+   * @param base position de référence comprise entre 0 et 1
+   */
   function colorRatio(val: number, base: number) {
     return Math.max(0, 1 - Math.abs(val - base));
   }
 }
-
+/**
+ * fonction principale d'initilisation de la page
+ */
 function init() {
   // Create Scene
   scene = new Scene();
@@ -712,7 +778,6 @@ function animate() {
           initpositionArray.getY(index),
           initpositionArray.getZ(index)
         );
-        //  (particulesMesh.geometry.attributes.position.array)[index] = initPositionArray[index];
       }
     } else {
       for (let index = 0; index < positionArray.count; index++) {
@@ -722,29 +787,29 @@ function animate() {
           positionArray.getY(index) + load3DVue.vectorList[3 * index + 1] / 50,
           positionArray.getZ(index) + load3DVue.vectorList[3 * index + 2] / 50
         );
-        //                positionArray[index]+=vectorList[index]/50;
       }
     }
-
     particulesMesh.geometry.attributes.position.needsUpdate = true;
   }
-
   renderer.render(scene, <Camera>Vue.camera);
 }
 
 var indices_bis, indices_bis_point;
+/**
+ * fonction de filtrage permettant de retirer les fragments de trajectoires ne se trouvant pas entre les bornes définies par les sliders
+ */
 function filterList() {
   indices_bis = [];
   indices_bis_point = [];
- // indices_bis.push(indices[0], indices[1]);
+  // indices_bis.push(indices[0], indices[1]);
   for (let index = 0; index < indices.length; index += 2) {
     const el = indices[index];
 
     if (
-      positions[2+ 3 * el] >= Panel.floor - 0.5 &&
-      positions[2+ 3 * el] <= Panel.ceil - 0.5 &&
-      load3DVue.vectorList[2 + 3 * el] >= 2*(Panel.glidefloor-0.5) &&
-      load3DVue.vectorList[2 + 3 * el] <= 2*(Panel.glideceil-0.5)
+      positions[2 + 3 * el] >= Panel.floor - 0.5 &&
+      positions[2 + 3 * el] <= Panel.ceil - 0.5 &&
+      load3DVue.vectorList[2 + 3 * el] >= 2 * (Panel.glidefloor - 0.5) &&
+      load3DVue.vectorList[2 + 3 * el] <= 2 * (Panel.glideceil - 0.5)
     ) {
       indices_bis.push(el, indices[index + 1]);
       indices_bis_point.push(el);
@@ -754,63 +819,4 @@ function filterList() {
   load3DVue.pointGeometry.setIndex(indices_bis_point);
 }
 
-function exampleThreejs() {
-  var geometryLine = new BufferGeometry();
-  var material = new LineBasicMaterial({
-    transparent: true,
-    opacity: 0.8,
-    vertexColors: true,
-    blending: AdditiveBlending,
-  });
-
-  var indices = [];
-  var colors = [];
-  var positions = [];
-  positions.push(-0.5, -0.5, -0.5);
-  positions.push(0.5, 0.5, 0.5);
-  colors.push(1, 1, 0);
-  colors.push(0, 1, 0);
-  indices.push(0, 1);
-
-  geometryLine.setAttribute(
-    "position",
-    new Float32BufferAttribute(positions, 3)
-  );
-  geometryLine.setAttribute("color", new Float32BufferAttribute(colors, 3));
-  geometryLine.setIndex(indices);
-
-  var lineMesh = new LineSegments(geometryLine, material);
-  scene.add(lineMesh);
-}
-
-function part3() {
-  var pointGeometry = new BufferGeometry();
-
-  var positions = [];
-  var colors = [];
-  positions.push(0, 0, 0);
-  colors.push(0, 1, 0);
-  pointGeometry.setAttribute(
-    "position",
-    new Float32BufferAttribute(positions, 3)
-  );
-  pointGeometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
-
-  var pointMaterial = new PointsMaterial({
-    size: 20,
-    vertexColors: true,
-    transparent: true,
-    opacity: 0.5,
-    blending: AdditiveBlending,
-  });
-
-  particulesMesh = new Points(pointGeometry, pointMaterial);
-  scene.add(particulesMesh);
-}
-
-function animate2() {
-  requestAnimationFrame(animate);
-
-  renderer.render(scene, <Camera>Vue.camera);
-}
 init();
